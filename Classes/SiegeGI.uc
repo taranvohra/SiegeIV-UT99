@@ -77,6 +77,8 @@ var sgCategoryInfo CategoryInfo[4];
 var Weapon theWeapon; //We keep this pointer during Weapon mutation
 var sgPRI LastMidSpawnToucher;
 var string LastMidSpawnItemName;
+var string ActiveNukersList[64]; 		// single array for red, blue, green, gold nukers (16 each)
+var byte ActiveNukersNukeCount[64];	// corresponding array to hold the Nuke Count for red, blue, green, gold nukers
 
 
 var sgBuildingMap BuildingMaps[4];
@@ -94,17 +96,6 @@ replication
         MaxRUs;
 }
 */
-
-struct ActiveNuker {
-	var string PlayerName;
-	var byte NukeCount;
-};
-
-struct ActiveNukersList {
-	var ActiveNuker ActiveNukers[32];
-};
-
-var ActiveNukersList TeamNukersList[4];
 
 //Higor: rotate teams starts (teams 0-5 to 100-105), then finish and put them back on 0-5
 function SwapPlayerStarts( byte To, byte From)
@@ -2127,12 +2118,17 @@ function MidItemPicked(sgPRI Owner, string ItemName) {
 * @bShouldAdd: true to add nuker/count, false to remove nuker/count
 * @count: count to add/remove
 */
-function UpdateNukersList(Pawn Player, bool bShouldAdd, byte count) {
-	local int i;
-	local bool bListChanged;
+function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
+	local int i, j;
 	local string PlayerName;
 	local byte Team;
 	local byte presentNukeCount;
+	local bool bListChanged;
+	local bool bNukerPresent;
+	local string sTemp;
+	local byte bTemp;
+	local sgPRI aPRI;
+	local string TeamNukers[16];		// The team will Receive only their own team's nukers
 
 	if(PlayerPawn(Player) == None) return;
 
@@ -2141,22 +2137,83 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, byte count) {
 
 	if(bShouldAdd) {
 		// loop until you find an empty spot in the list
-		while(TeamNukersList[Team].ActiveNukers[i].PlayerName != "") {
-			if(TeamNukersList[Team].ActiveNukers[i].PlayerName == PlayerName) { 	// but if nuker was already in, break,
-				presentNukeCount = TeamNukersList[Team].ActiveNukers[i].NukeCount;		// store how many nukes player has at this point
+		for(i = Team * 16; i < (Team * 16) + 16; i++) {
+			if(ActiveNukersList[i] == "")
+				break;
+			if(ActiveNukersList[i] == PlayerName) {	// but if nuker was already in, break,
+				presentNukeCount = ActiveNukersNukeCount[i]; // store how many nukes player has at this point
 				break;
 			}
 		}
 
-		if(presentNukeCount != 2) {		// update list if player doesn't have 2 nukes
-			TeamNukersList[Team].ActiveNukers[i].PlayerName = PlayerName;
-			TeamNukersList[Team].ActiveNukers[i].NukeCount = (presentNukeCount + count) % 3;
+		// update list only if player doesn't have 2 nukes
+		if(presentNukeCount != 2) {
+			ActiveNukersList[i] = PlayerName;
+			ActiveNukersNukeCount[i] = (presentNukeCount + count) % 3;
 			bListChanged = true;
 		}
 	} else {
+		for(i = Team * 16; i < (Team * 16) + 16; i++) {
+			if(ActiveNukersList[i] == PlayerName) {	// position of nuker found in array (i)
+				bNukerPresent = true;
+				break;
+			}
+		}
 
+		// update list only if nuker was already in the list
+		if(bNukerPresent) {
+			bListChanged = true;
+			if(count == 0) {		// count wasn't specified that means player dropped all his nukes, so remove
+				ActiveNukersList[i] = "";
+				ActiveNukersNukeCount[i] = 0;
+				for(j = i + 1; j < (Team * 16) + 16; j++) { 	// shift list
+					if(ActiveNukersList[j] == "")		// remaining list is empty, don't bother
+						break;
+
+					// SHIFTING LOGIC
+					sTemp = ActiveNukersList[j];
+					bTemp = ActiveNukersNukeCount[j];
+
+					ActiveNukersList[j] = ActiveNukersList[j - 1];
+					ActiveNukersNukeCount[j] = ActiveNukersNukeCount[j - 1];
+
+					ActiveNukersList[j - 1] = sTemp;
+					ActiveNukersNukeCount[j - 1] = bTemp;
+				}
+			} else {
+				ActiveNukersNukeCount[i] -= count;
+				if(ActiveNukersNukeCount[i] == 0) { 	// player has no more nukes, so remove
+					for(j = i + 1; j < (Team * 16) + 16; j++) { 	// shift list
+						if(ActiveNukersList[j] == "")		// remaining list is empty, don't bother
+							break;
+
+						// SHIFTING LOGIC
+						sTemp = ActiveNukersList[j];
+						bTemp = ActiveNukersNukeCount[j];
+
+						ActiveNukersList[j] = ActiveNukersList[j - 1];
+						ActiveNukersNukeCount[j] = ActiveNukersNukeCount[j - 1];
+
+						ActiveNukersList[j - 1] = sTemp;
+						ActiveNukersNukeCount[j - 1] = bTemp;
+					}
+				}
+			}
+		}
 	}
 
+	// advertise change ONLY if list has been modified
+	if(bListChanged) {
+		for(i = Team * 16; i < (Team * 16) + 16; i++)
+			TeamNukers[i] = ActiveNukersList[i];			// Only copying nukers from a specific team
+
+		ForEach AllActors (class'sgPRI', aPRI) {
+			if(aPRI.Team == Team)							// Broadcast changes to only that specific TEAM
+				aPRI.ReceiveNukersList(TeamNukers);
+			if(aPRI.bIsSpectator)
+				aPRI.ReceiveNukersList(, ActiveNukersList);	// Because Spectators should be able to see ALL NUKERS
+		}
+	}
 }
 
 function byte AssessBotAttitude(Bot aBot, Pawn Other)

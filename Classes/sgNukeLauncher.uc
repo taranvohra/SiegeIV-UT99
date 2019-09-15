@@ -54,6 +54,7 @@ event Destroyed()
 		NukeDeco = none;
 	}
 	Super.Destroyed();
+	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false);	// no count specified here because person died (lost all nukes)
 }
 
 simulated function PostRender( canvas Canvas )
@@ -189,6 +190,7 @@ function DropFrom(vector StartLocation)
 {
 	if ( NukeDeco != none )
 		NukeDeco.Destroy();
+	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false);	// no count specified here because person will be dropping all
 	Super.DropFrom(StartLocation);
 }
 
@@ -198,6 +200,7 @@ function Fire( float Value )
 	Super.Fire(Value);
 	if ( (AmmoType.AmmoAmount <= 0) && (NukeDeco != none) )
 		NukeDeco.Destroy();
+	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false, 1);
 }
 
 function AltFire( float Value )
@@ -212,6 +215,8 @@ function AltFire( float Value )
 
 	if ( AmmoType.UseAmmo(1) )
 	{
+		SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false, 1);
+
 		for ( p = Level.PawnList; p != None; p = p.nextPawn )
 			if ( p.IsA('TournamentPlayer' ) && p.PlayerReplicationInfo.Team !=
               Pawn(Owner).PlayerReplicationInfo.Team)

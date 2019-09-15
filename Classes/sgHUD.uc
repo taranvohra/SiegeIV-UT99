@@ -29,6 +29,7 @@ class sgHUD extends ChallengeTeamHUD config;
 
 var Pawn            IdentifyPawn;
 var() color         GreyColor;
+var Color PinkColor;
 var int Glowing;
 var int RedColour;
 var color GlowColour;
@@ -73,6 +74,9 @@ var config string VisorActMSG, VisorDeactMSG;
 var bool bSiegeStats;
 var bool bTeamRU;
 var bool bEnforceHealth;
+var bool bShowNukers;
+var string TeamNukers[16];
+var string AllNukers[64];
 
 //Item caching for faster Inventory chain searches
 var() byte HasCached[11];
@@ -108,11 +112,11 @@ simulated final function FixInventoryChain( optional bool bOnlyBreak)
 	local Inventory Inv, Last, Lone;
 	local int LoopCount;
 	local float fTag;
-	
+
 	//Do not run this routine on authoritary session
 	if ( Level.NetMode != NM_Client || Pawn(Owner).Health <= 0 )
 		return;
-	
+
 	//Setup - owned
 	fTag = 1 + FRand() * 20;
 
@@ -138,7 +142,7 @@ simulated final function FixInventoryChain( optional bool bOnlyBreak)
 		Inv.OddsOfAppearing = fTag;
 		Last = Inv;
 	}
-	
+
 	if ( bOnlyBreak )
 		return;
 
@@ -162,7 +166,7 @@ simulated final function FixInventoryChain( optional bool bOnlyBreak)
 				return; //Try again on next frame
 			}
 	}
-		
+
 	//Find latest base of non-player chain and attach
 	ForEach Owner.ChildActors( class'Inventory', Inv)
 		if ( Abs(Inv.OddsOfAppearing) != fTag )
@@ -181,7 +185,7 @@ simulated function CacheInventory()
 	local int LoopCount, i;
 	local Pawn P;
 	local bool bFoundWeaponInChain, bFoundAmmoInChain;
-	
+
 	CachedArmor = 0;
 	CachedThigs = 0;
 	CachedShield = 0;
@@ -191,7 +195,7 @@ simulated function CacheInventory()
 	P = Pawn(Owner);
 	if ( PawnOwner != None )
 		P = PawnOwner;
-	
+
 	For ( inv=P.Inventory ; inv!=none ; inv=inv.Inventory )
 	{
 		if ( ++LoopCount > 100 )
@@ -234,7 +238,7 @@ simulated function CacheInventory()
 	if ( CachedSuit != none && CachedSuit.bIsAnArmor )
 		HiddenArmor += CachedSuit.Charge;
 	CachedArmor -= HiddenArmor;
-	
+
 	if ( !bFoundWeaponInChain || !bFoundAmmoInChain )
 		FixInventoryChain();
 }
@@ -381,7 +385,61 @@ simulated function DrawTeamRU(canvas C)
 			}
 		}
 	}
+}
 
+simulated function DrawShowNukers(Canvas C) {
+	local int i, x, y;
+	local sgPRI PRI;
+	local float width, height;
+	local string s;
+
+	x = 10;
+	y = 0;
+
+	C.Font = Font'SmallFont';
+	C.Style = ERenderStyle.STY_Normal;
+	C.DrawColor = WhiteColor;
+	if(!PlayerPawn(Owner).PlayerReplicationInfo.bIsSpectator) {
+		for(i = 0; i < 16; i++) {
+			if(TeamNukers[i] == "") break;
+			s = TeamNukers[i];
+			C.TextSize(s, width, height);
+			y++;
+		}
+
+		y = C.ClipY/3 - ((y * height)/2);
+		C.SetPos(x, y);
+		C.DrawText("Nukers:", True);
+		y += 1;
+
+		C.DrawColor = TeamColor[Pawn(Owner).PlayerReplicationInfo.Team];
+		for(i = 0; i < 16; i++) {
+			if(TeamNukers[i] == "") break;
+			C.SetPos(x, y);
+			C.DrawText(TeamNukers[i], True);
+			y += height;
+		}
+	} else {
+		for(i = 0; i < 64; i++) {
+			if(AllNukers[i] == "") continue;
+			s = AllNukers[i];
+			C.TextSize(s, width, height);
+			y++;
+		}
+
+		y = C.ClipY/3 - ((y * height)/2);
+		C.SetPos(x, y);
+		C.DrawText("Nukers:", True);
+		y += 1;
+
+		C.DrawColor = PinkColor;
+		for(i = 0; i < 64; i++) {
+			if(AllNukers[i] == "") continue;
+			C.SetPos(x, y);
+			C.DrawText(AllNukers[i], True);
+			y += height;
+		}
+	}
 }
 
 simulated function DrawSiegeStats(canvas C)
@@ -396,7 +454,7 @@ simulated function DrawSiegeStats(canvas C)
 	local pawn p;
 
 	local color 	cCol;
-	
+
 	local sgPRI pInfo[8];
 	local string sInfo[8];
 
@@ -429,11 +487,11 @@ simulated function DrawSiegeStats(canvas C)
 	C.DrawText("-= Siege Ultimate Game Stats =-", True );
 	C.Font = MyFonts.GetBigFont( C.ClipX );
 	C.SetPos(0, YL + HugeFontHeight*2);
-	
+
 	C.DrawText("Top Player Rankings", True );
 	YL+=HugeFontHeight*2;
 	C.bCenter = false;
-	
+
 	YL += C.ClipY/2 - (5 * (BigFontHeight+TinyFontHeight)) - BigFontHeight;
 	YL = int(YL * 0.5);
 
@@ -447,7 +505,7 @@ simulated function DrawSiegeStats(canvas C)
 		if ( (PRI != None) && !PRI.bIsSpectator )
 		{
 			nPlayers++;
-			if (PRI.sgInfoCoreKiller > pInfo[0].sgInfoCoreKiller) pInfo[0]=PRI; 
+			if (PRI.sgInfoCoreKiller > pInfo[0].sgInfoCoreKiller) pInfo[0]=PRI;
 			if (PRI.sgInfoCoreRepair > pInfo[1].sgInfoCoreRepair) pInfo[1]=PRI;
 			if (PRI.sgInfoBuildingHurt > pInfo[2].sgInfoBuildingHurt) pInfo[2]=PRI;
 			if (PRI.sgInfoKiller > pInfo[3].sgInfoKiller) pInfo[3]=PRI;
@@ -482,9 +540,9 @@ simulated function DrawSiegeStats(canvas C)
 		C.SetPos(X, Y1);
 		C.DrawText(sgRanks[i]);
 
-		if (pInfo[i] != None) 
+		if (pInfo[i] != None)
 		{
-			
+
 			s1 = pInfo[i].PlayerName;
 			if (pInfo[i] == PRI)
         			C.DrawColor = GoldColor;
@@ -498,7 +556,7 @@ simulated function DrawSiegeStats(canvas C)
 		}
 		C.TextSize(s1, Width, Height);
 		C.SetPos(((C.ClipX/4)*3)-Width, Y1);
-		C.DrawText(s1);	
+		C.DrawText(s1);
 		C.Font = Font'SmallFont';
 		C.DrawColor = GreyColor;
 		if (sInfo[i] != "")
@@ -521,7 +579,7 @@ simulated function DrawSiegeStats(canvas C)
 	C.SetPos(0, Y1);
 	C.DrawText(GetPlural(nPlayers,"Player")@"Playing");
 	C.bCenter = false;
-	
+
 	//HIGOR: Remove messages
 	Height = (C.ClipY - BigFontHeight*2) - Y1;
 	MaxPerColumn = Clamp( Height / (SmallFontHeight + 2), 0, PRI.iHistory);
@@ -549,26 +607,26 @@ simulated function PostRender( canvas Canvas )
 
 	local bool bWatchingTV;
 	local int count;
-	
+
 	local PlayerPawn PP;
 	local Actor A;
 
-	///////////////////////	
+	///////////////////////
 	//Thermal Visor Stuff//
 	///////////////////////
 	if (!bVisorDeActivated && CachedVisor != None )
 		{
 			globalint=0;
-			
+
 			Canvas.SetPos(0, 0);
 			Canvas.Style = ERenderStyle.STY_Modulated;
 			Canvas.DrawRect(Texture'BlueSquare', Canvas.ClipX, Canvas.ClipY);
-			
+
 			if (bSeeBehindWalls)
 				{
 					foreach RadiusActors(AffectedActorsClass, A, HeatSensingRange, Owner.Location)
 						{
-							if (A != Owner && !A.IsA(ExcludedClass) && !A.bHidden && FMax(A.CollisionRadius, A.CollisionHeight) > 0 
+							if (A != Owner && !A.IsA(ExcludedClass) && !A.bHidden && FMax(A.CollisionRadius, A.CollisionHeight) > 0
 							&& A.DrawType == DT_Mesh && (A.bCollideActors || A.bProjTarget))
 							HeatUp(A, globalint, Canvas);
 						}
@@ -580,7 +638,7 @@ simulated function PostRender( canvas Canvas )
 							if (A != Owner && !A.IsA(ExcludedClass) && A.DrawType == DT_Mesh)
 							HeatUp(A, globalint, Canvas);
 						}
-				}				
+				}
 		}
 
 	HUDSetup(canvas);
@@ -901,6 +959,8 @@ simulated function PostRender( canvas Canvas )
 		DrawSiegeStats(Canvas);
 	else if (bTeamRU)
 		DrawTeamRU(Canvas);
+	if(bShowNukers)
+		DrawShowNukers(Canvas);
 }
 
 ///////////////////////////////////////////
@@ -913,7 +973,7 @@ simulated function HeatUp(Actor A, int i, canvas Canvas)
 	if (HeatObjs[i].SavedHeat == None)
 	{
 		HeatObjs[i].HeatOwner = A;
-		
+
 		if (A.IsA('Bot') || A.IsA('PlayerPawn') )
 		{
 			Canvas.DrawColor.R = 0;
@@ -950,7 +1010,7 @@ simulated function HeatUp(Actor A, int i, canvas Canvas)
 		GlobalInt++;
 		return;
 	}
-	
+
 	if (A.DrawScale == A.default.DrawScale)
 	{
 		HeatObjs[i].SavedHeat.Mesh = HeatObjs[i].HeatOwner.Mesh;
@@ -966,7 +1026,7 @@ simulated function HeatUp(Actor A, int i, canvas Canvas)
 		HeatObjs[i].SavedHeat.SetLocation(HeatObjs[i].HeatOwner.Location);
 		HeatObjs[i].SavedHeat.SetRotation(HeatObjs[i].HeatOwner.Rotation);
 	}
-	
+
 	Canvas.DrawActor(HeatObjs[i].SavedHeat, false, bSeeAllHeat);
 	globalint++;
 }
@@ -992,7 +1052,7 @@ exec function ToggleVisor()
 			bVisorDeActivated=True;
 			Owner.PlaySound(Sound'UnrealShare.Menu.side1b', SLOT_Misc, Pawn(Owner).SoundDampening*2.5);
 			Pawn(Owner).ClientMessage(VisorDeactMsg);
-			
+
 			for (i=0; i<32; i++)
 			HeatObjs[i].SavedHeat.Destroy();
 		}
@@ -1003,6 +1063,11 @@ exec function ToggleVisor()
 			Pawn(Owner).ClientMessage(VisorActMSG);
 		}
 	}
+}
+
+exec function ShowNukers()
+{
+	bShowNukers = !bShowNukers;
 }
 
 
@@ -1020,7 +1085,7 @@ simulated function bool TraceIdentify(canvas Canvas)
 	if ( (CachedConstructor != none) && (CachedConstructor.HitPawn != none) )
 		other = CachedConstructor.HitPawn;
 	else
-	{	
+	{
 		startTrace = Owner.Location;
 		startTrace.Z += PawnOwner.BaseEyeHeight;
 		endTrace = startTrace + vector(PawnOwner.ViewRotation) * 10000.0;
@@ -1089,8 +1154,8 @@ simulated function DrawTwoColorID(canvas Canvas, string TitleString,
 //====================================================================================================
 // HISTORY: The DrawIdentifyInfo() function use to SPAM the log file on clients with Acessed None
 // Errors. Badger made some bad refrences to the building owner's PlayerReplicationInfo when the owner
-// did not exist. Example: The core does not have an owner so when the player looks at the core the 
-// acessed none errors come cranking same could happen if a player left and all the ownership of the 
+// did not exist. Example: The core does not have an owner so when the player looks at the core the
+// acessed none errors come cranking same could happen if a player left and all the ownership of the
 // buildings they created were lost so those building have no owner so they behave like the core would
 // Higor: And I had to rewrite all from scratch because the spam was still massive
 //====================================================================================================
@@ -1104,9 +1169,9 @@ simulated function bool DrawIdentifyInfo(canvas Canvas)
 
 	local PlayerReplicationInfo BuilderPRI;
 	local sgBuilding Building;
-	
+
 	local float NextLVCost;
-	
+
 	if ( bSiegeStats || !TraceIdentify(Canvas) )
 		return false;
 
@@ -1119,7 +1184,7 @@ simulated function bool DrawIdentifyInfo(canvas Canvas)
 			IdentifyPawn = None;
 			return false;
 		}
-			
+
 		Building = sgBuilding(IdentifyPawn); //Higor, don't do a subclass lookup like 20 times.
 		BuilderPRI = Building.OwnerPRI; //Higor: Now players don't need bAlwaysRelevant
 
@@ -1169,7 +1234,7 @@ simulated function bool DrawIdentifyInfo(canvas Canvas)
 			Canvas.Font = BigFont;
 			DrawTwoColorID(Canvas,"Built by:", BuilderPRI.PlayerName, YPos);
 		}
-		
+
 		if( !Building.DoneBuilding) //Higor: same here, placing it in this block ensures Building exists and preventes yet another log warning
 		{
 			buildTime = Building.SCount * 0.1 / Level.TimeDilation;
@@ -1179,7 +1244,7 @@ simulated function bool DrawIdentifyInfo(canvas Canvas)
 				timeleft = string(buildTime);
 				timeleft = Left( timeleft, Len(timeleft) + nHUDDecPlaces - 6);
 				Canvas.Font = BigFont;
-				DrawTwoColorID(Canvas,"Time left:", timeleft @ "sec" , YPos);    
+				DrawTwoColorID(Canvas,"Time left:", timeleft @ "sec" , YPos);
 			}
 		}
 		else if ( (Building.iRULeech > 0) && (PlayerOwner.PlayerReplicationInfo != none) )
@@ -1192,7 +1257,7 @@ simulated function bool DrawIdentifyInfo(canvas Canvas)
 			}
 		}
 	}
-	else 
+	else
 	{
 		// We are looking at a Player
 		if ( (IdentifyTarget != None) && (IdentifyTarget.PlayerName != "") && (IdentifyPawn != none) )
@@ -1238,14 +1303,14 @@ simulated function DrawGameSynopsis(canvas Canvas)
 
 	// Percents
     local float fuelPercent, DashPercent;
-	
+
     local sgPRI		PRI;
     local Jetpack       pack;
     local string 	s;
     local color 	cCol;
     local sgBaseCore sgB;
     local byte aStyle;
-	
+
 	if (bSiegeStats) return;
 
 	GRI = sgGameReplicationInfo(PlayerOwner.GameReplicationInfo);
@@ -1275,7 +1340,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 	if ( PlayerPawn(Owner) != PawnOwner )
 		Goto SKIP_ITEMS;
 
-	///////////////////////////////////////////////////////////////	
+	///////////////////////////////////////////////////////////////
 	// HUD ITEM SLOTS /////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////
 	aStyle = Style;
@@ -1291,7 +1356,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 	{
 		YOffset -= 63.9 * WeapScale;
 		Canvas.DrawColor = HUDColor; //SolidHUDcolor?
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.DrawIcon(Texture'HUD_sgBoots', WeapScale);
 		Canvas.CurX = 5 * WeapScale;
 		Canvas.CurY = YOffset + Canvas.CurX;
@@ -1306,7 +1371,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 	{
 		YOffset -= 63.9 * WeapScale;
 		Canvas.DrawColor = HUDColor; //SolidHUDcolor?
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.DrawIcon(Texture'HUD_Invis', WeapScale);
 
 		Canvas.Style = ERenderStyle.STY_Normal;
@@ -1328,9 +1393,9 @@ simulated function DrawGameSynopsis(canvas Canvas)
 		AmpCharge = 0.1 * CachedAmp.Charge;
 		YOffset -= 63.9 * WeapScale;
 		Canvas.DrawColor = HUDColor; //SolidHUDcolor?
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.DrawIcon(Texture'HUD_UDamT', WeapScale);
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.Style = ERenderStyle.STY_Modulated;
 		Canvas.DrawIcon(Texture'HUD_UDamM', WeapScale);
 		Canvas.Style = ERenderStyle.STY_Normal;
@@ -1344,17 +1409,17 @@ simulated function DrawGameSynopsis(canvas Canvas)
 		Canvas.DrawTile(Texture'BotPack.HudElements1', 17 * WeapScale, 36 * WeapScale, 25*(AmpCharge % 10), 0, 25.0, 64.0);
 		Canvas.Style = aStyle;
 	}
-	
+
 	//////////////////////// DAMPENER ////////////////////////
 	if ( CachedDamp != None )
 	{
 		AmpCharge = 0.1 * CachedDamp.Charge;
 		YOffset -= 63.9 * WeapScale;
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.Style = ERenderStyle.STY_Modulated;
 		Canvas.DrawColor = WhiteColor;
 		Canvas.DrawIcon(Texture'HUD_DampenerModu', WeapScale);
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.Style = ERenderStyle.STY_Translucent;
 		Canvas.DrawColor = HUDColor;
 		if ( CachedDamp.bActive && (AmpCharge > 0) )
@@ -1385,11 +1450,11 @@ simulated function DrawGameSynopsis(canvas Canvas)
 		Canvas.DrawColor = HUDColor; //SolidHUDcolor?
 		if ( Style != ERenderStyle.STY_Normal )
 		{
-			Canvas.SetPos(0,YOffset);	
+			Canvas.SetPos(0,YOffset);
 			Canvas.Style = ERenderStyle.STY_Modulated;
 			Canvas.DrawIcon(Texture'HUD_TNetworkM', WeapScale);
 		}
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.Style = aStyle;
 		Canvas.DrawIcon(Texture'HUD_TNetworkT', WeapScale);
 	}
@@ -1399,7 +1464,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 	{
 		YOffset -= 63.9 * WeapScale;
 		Canvas.DrawColor = HUDColor;
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		Canvas.DrawIcon(Texture'HUD_Scuba', WeapScale);
 		j = CachedScuba.Charge / 10;
 		Canvas.DrawColor = GoldColor;
@@ -1425,7 +1490,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 	{
 		YOffset -= 63.9 * WeapScale;
 		Canvas.DrawColor = HUDColor; //SolidHUDcolor?
-		Canvas.SetPos(0,YOffset);	
+		Canvas.SetPos(0,YOffset);
 		if ( ToxinSuit(CachedSuits) != none )
 			Canvas.DrawIcon(Texture'HUD_sgToxin', WeapScale);
 		else if ( AsbestosSuit(CachedSuits) != none ) //INCLUDE KEVLAR LATER!
@@ -1501,7 +1566,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 				YL = 384;
 				Canvas.SetPos(XL,YL);
 				Canvas.DrawColor = NewColor(128,128,128);
-				
+
 				Canvas.DrawText("Monster Left:"@SiegeGI(Level.Game).MonstersLeft, false);
 			}
 	*/
@@ -1586,7 +1651,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 			}
 			else
 				cCol=GreyColor;
-		
+
 			Canvas.DrawColor = cCol;
 			sCore = fuelPercent;
 			Canvas.DrawText(""@s, false);
@@ -1607,7 +1672,7 @@ simulated function DrawStatus(Canvas Canvas)
 	local TournamentPlayer TPOwner;
 	local texture Doll, DollBelt;
 	local float XL,YL;
-	
+
 	ArmorAmount = 0;
 	CurAbs = 0;
 	i = 0;
@@ -1623,7 +1688,7 @@ simulated function DrawStatus(Canvas Canvas)
 	ArmorAmount = CachedThigs + HiddenArmor + CachedArmor + CachedShield;
 
 	if ( !bHideStatus )
-	{	
+	{
 		TPOwner = TournamentPlayer(PawnOwner);
 		if ( Canvas.ClipX < 400 )
 			bHasDoll = false;
@@ -1644,7 +1709,7 @@ simulated function DrawStatus(Canvas Canvas)
 			}
 		}
 		if ( bHasDoll )
-		{ 							
+		{
 			Canvas.Style = ERenderStyle.STY_Translucent;
 			StatScale = Scale * StatusScale;
 			X = Canvas.ClipX - 128 * StatScale;
@@ -1781,7 +1846,7 @@ simulated function DrawStatus(Canvas Canvas)
 			XL = 25;
 		else if ( i/60 > 99 )
 			XL = 15;
- 
+
         // Draw in front of Frags
         if ( bHideStatus && bHideAllWeapons )
         {
@@ -1852,13 +1917,13 @@ simulated function LocalizedMessage( class<LocalMessage> Message, optional int S
 
 	if ( !Message.Default.bIsSpecial )
 	{
-		if ( ClassIsChildOf(Message, class'SayMessagePlus') || 
+		if ( ClassIsChildOf(Message, class'SayMessagePlus') ||
 						 ClassIsChildOf(Message, class'TeamSayMessagePlus') )
 		{
 			FaceTexture = RelatedPRI_1.TalkTexture;
 			if ( FaceTexture != None )
 				FaceTime = Level.TimeSeconds + 3;
-		} 
+		}
 		// Find an empty slot.
 		for (i=0; i<4; i++)
 		{
@@ -1892,8 +1957,8 @@ simulated function LocalizedMessage( class<LocalMessage> Message, optional int S
 		else
 			ShortMessageQueue[3].StringMessage = Message.Static.GetString(Switch, RelatedPRI_1, RelatedPRI_2, OptionalObject);
 		return;
-	} 
-	else 
+	}
+	else
 	{
 		if ( CriticalString == "" )
 			CriticalString = Message.Static.GetString(Switch, RelatedPRI_1, RelatedPRI_2, OptionalObject);
@@ -1903,9 +1968,9 @@ simulated function LocalizedMessage( class<LocalMessage> Message, optional int S
 			{
 				if (LocalMessages[i].Message != None)
 				{
-					if ((LocalMessages[i].Message == Message) 
-						|| (LocalMessages[i].Message.Static.GetOffset(LocalMessages[i].Switch, 24, 640) 
-								== Message.Static.GetOffset(Switch, 24, 640)) ) 
+					if ((LocalMessages[i].Message == Message)
+						|| (LocalMessages[i].Message.Static.GetOffset(LocalMessages[i].Switch, 24, 640)
+								== Message.Static.GetOffset(Switch, 24, 640)) )
 					{
 						LocalMessages[i].Message = Message;
 						LocalMessages[i].Switch = Switch;
@@ -1914,7 +1979,7 @@ simulated function LocalizedMessage( class<LocalMessage> Message, optional int S
 						LocalMessages[i].LifeTime = Message.Default.Lifetime;
 						LocalMessages[i].EndOfLife = Message.Default.Lifetime + Level.TimeSeconds;
 						LocalMessages[i].StringMessage = CriticalString;
-						
+
 						// The Color Hack! :)
 						if ( UseSpecialColor == true )
 							{
@@ -1944,7 +2009,7 @@ simulated function LocalizedMessage( class<LocalMessage> Message, optional int S
 				LocalMessages[i].OptionalObject = OptionalObject;
 				LocalMessages[i].EndOfLife = Message.Default.Lifetime + Level.TimeSeconds;
 				LocalMessages[i].StringMessage = CriticalString;
-				LocalMessages[i].DrawColor = Message.Static.GetColor(Switch, RelatedPRI_1, RelatedPRI_2);				
+				LocalMessages[i].DrawColor = Message.Static.GetColor(Switch, RelatedPRI_1, RelatedPRI_2);
 				LocalMessages[i].LifeTime = Message.Default.Lifetime;
 				LocalMessages[i].XL = 0;
 				return;
@@ -1961,7 +2026,7 @@ simulated function LocalizedMessage( class<LocalMessage> Message, optional int S
 		LocalMessages[9].OptionalObject = OptionalObject;
 		LocalMessages[9].EndOfLife = Message.Default.Lifetime + Level.TimeSeconds;
 		LocalMessages[9].StringMessage = CriticalString;
-		LocalMessages[9].DrawColor = Message.Static.GetColor(Switch, RelatedPRI_1, RelatedPRI_2);				
+		LocalMessages[9].DrawColor = Message.Static.GetColor(Switch, RelatedPRI_1, RelatedPRI_2);
 		LocalMessages[9].LifeTime = Message.Default.Lifetime;
 		LocalMessages[9].XL = 0;
 		return;
@@ -2051,7 +2116,7 @@ simulated function Message( PlayerReplicationInfo PRI, coerce string Msg, name M
 			break;
 	}
 
-	if ( ClassIsChildOf(MessageClass, class'SayMessagePlus') || 
+	if ( ClassIsChildOf(MessageClass, class'SayMessagePlus') ||
 				     ClassIsChildOf(MessageClass, class'TeamSayMessagePlus') )
 	{
 		FaceTexture = PRI.TalkTexture;
@@ -2059,7 +2124,7 @@ simulated function Message( PlayerReplicationInfo PRI, coerce string Msg, name M
 			FaceTime = Level.TimeSeconds + 3;
 		if ( Msg == "" )
 			return;
-	} 
+	}
 	for (i=0; i<4; i++)
 	{
 		if ( ShortMessageQueue[i].Message == None )
@@ -2131,12 +2196,13 @@ simulated function Color NewColor( byte r, byte g, byte b )
      sgRankDesc(5)="The player who built the greatest number of warheads"
      sgRankDesc(6)="The player who killed the greatest number of warheads"
      sgRankDesc(7)="The player who repaired and upgraded the most"*/
-	 
+
 defaultproperties
 {
 	 HudItemSlotSpace=36
      GreyColor=(R=128,G=128,B=128)
-     RedColour=128
+	 RedColour=128
+	 PinkColor=(R=242,G=128,B=249)
      TheWhiteStuff=(R=255,G=255,B=255)
      nHUDDecPlaces=1
      sgRanks(0)="Top BaseCore attacker"

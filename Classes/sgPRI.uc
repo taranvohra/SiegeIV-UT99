@@ -7,8 +7,8 @@
 //=============================================================================
 class sgPRI extends PlayerReplicationInfo;
 
-var float	sgInfoCoreKiller, 
-		sgInfoCoreRepair, 
+var float	sgInfoCoreKiller,
+		sgInfoCoreRepair,
 		sgInfoBuildingHurt,
 		sgInfoUpgradeRepair;
 var int		sgInfoKiller,
@@ -22,7 +22,7 @@ var Texture CachedFlag; //Client takes care of this
 
 var Actor IpToCountry;
 var float ResolveWait;
-var bool bIpToCountry;		
+var bool bIpToCountry;
 
 var float           RU;
 var WildcardsOrbs Orb;
@@ -70,12 +70,21 @@ var name Orders;
 var actor OrderObject;
 var sgAIqueuer AIQueuer;
 
+struct ActiveNuker {
+	var string PlayerName;
+	var byte NukeCount;
+};
+
+struct ActiveNukersList {
+	var ActiveNuker ActiveNukers[32];
+};
+
 replication
 {
 	reliable if ( Role == ROLE_Authority )
 		RU, XC_Orb, Orb, sgInfoCoreKiller, sgInfoBuildingHurt, sgInfoCoreRepair, sgInfoUpgradeRepair, sgInfoKiller, sgInfoBuildingMaker,sgInfoWarheadMaker, sgInfoWarheadKiller, CountryPrefix, bReadyToPlay, bHideIdentify, Orders;
 	reliable if ( Role == ROLE_Authority )
-		ReceiveMessage, RequestFingerPrint, ClientReceiveRU;
+		ReceiveMessage, RequestFingerPrint, ClientReceiveRU, ReceiveNukersList;
 	reliable if ( Role < ROLE_Authority )
 		SendFingerPrint, RequestFPTime;
 }
@@ -86,12 +95,12 @@ event PostBeginPlay()
 
 	if ( SiegeGI(Level.Game) != None )
 		RU = SiegeGI(Level.Game).StartingRU;
-	
-	//Bots	
+
+	//Bots
 	if ( PlayerPawn(Owner) == none )
 		SendFingerPrint("ARTIFICIAL_"$PlayerName);
 	//Local Player
-	else if ( ViewPort(PlayerPawn(Owner).Player) != none ) 
+	else if ( ViewPort(PlayerPawn(Owner).Player) != none )
 	{
 		PlayerFingerPrint = "LocalPlayer";
 		Owner.Spawn(class'sgClient');
@@ -116,7 +125,7 @@ function SendFingerPrint( string aFingerPrint)
 {
 	local sgPRI aPRI;
 	local sgBuilding sgB;
-	
+
 	if ( bReceivedFingerPrint )
 		return; //Cheat attempt?
 
@@ -244,7 +253,7 @@ simulated function ReceiveMessage( string sMsg, byte aTeam, bool bAnnounce)
 {
 	local int i, j;
 	local PlayerPawn LocalPlayer;
-	
+
 	LocalPlayer = PlayerPawn(Owner);
 	if ( (LocalPlayer == none) || (ViewPort(LocalPlayer.Player) == none) )
 		return;
@@ -289,7 +298,7 @@ simulated function ReceiveMessage( string sMsg, byte aTeam, bool bAnnounce)
 				}
 			}
 		}
-		
+
 		if ( iHistory == ArrayCount(sHistory) )
 			iHistory--;
 		For ( i=iHistory ; i>0 ; i-- )
@@ -303,10 +312,25 @@ simulated function ReceiveMessage( string sMsg, byte aTeam, bool bAnnounce)
 		sColors[0] = aTeam;
 		VisibleMessage = sMsg;
 		VisibleMessageNum++;
-	}	
+	}
 END_RECVM:
 	if ( bAnnounce )
 		LocalPlayer.ClientMessage("-== "$sMsg$" ==-");
+}
+
+simulated function ReceiveNukersList(optional string ActiveNukers[16], optional string AllNukers[64]) {
+	local sgHUD HUD;
+	local int i;
+	if ( PlayerPawn(Owner) != none ) {
+		HUD = sgHUD(PlayerPawn(Owner).MyHUD);
+		if(Spectator(Owner) == none) {
+			for(i = 0; i < 16; i++)
+				HUD.TeamNukers[i] = ActiveNukers[i];
+		} else {
+			for(i = 0; i < 64; i++)
+				HUD.AllNukers[i] = AllNukers[i];
+		}
+	}
 }
 
 function Timer()
@@ -356,7 +380,7 @@ function Tick(float deltaTime)
 
 	if ( Pawn(Owner) == none )
 		return;
-	
+
 	if ( AccRU != 0 )
 	{
 		AccRUTimer += DeltaTime;
@@ -406,7 +430,7 @@ function Tick(float deltaTime)
 	if ( bIpToCountry )
 	{
 		if(CountryPrefix == "")
-		{       
+		{
 			CountryPrefix = "*2";
 			P=PlayerPawn(Owner);
 TRY_AGAIN:
@@ -460,13 +484,13 @@ function ProtTimer( float DeltaTime)
 	ProtectCount -= DeltaTime;
 	if ( P.bFire + P.bAltFire > 0 ) //Disallow firing from suppliers
 		ProtectCount -= DeltaTime;
-		
+
 	if ( ProtectCount <= 0 )
 	{
 		WhosGun = none;
 		Pawn(Owner).ClientMessage("Siege spawn protection off");
 	}
-	
+
 	if ( PlayerData != None )
 		PlayerData.bSpawnProtected = ProtectCount > 0.1;
 }
@@ -477,7 +501,7 @@ simulated function CacheFlag()
 
 	if ( bFlagCached || (Asc(CountryPrefix) == 42) ) //* character
 		return;
-	
+
 	CachedFlag = Texture(DynamicLoadObject("CountryFlags2."$CountryPrefix, class'Texture', true));
 	if ( CachedFlag == None )
 		CachedFlag = Texture(DynamicLoadObject("CountryFlags5."$CountryPrefix, class'Texture', true));
