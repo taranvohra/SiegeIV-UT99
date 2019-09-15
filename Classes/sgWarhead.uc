@@ -47,7 +47,7 @@ function PostBuild()
 function Destruct( optional pawn instigatedBy)
 {
 	local sgPRI aPRI;
-	
+
 	if ( instigatedBy != none )
 	{
 		aPRI = sgPRI(instigatedBy.PlayerReplicationInfo);
@@ -66,8 +66,11 @@ function bool GiveItems( Pawn Other)
 	if ( Super.GiveItems(Other) )
 	{
 		Other.PlaySound(sound'sgMedia.sgGetNuke', SLOT_None, Other.SoundDampening * 3);
-		if ( PlayerPawn(Other) != none )
+		if ( PlayerPawn(Other) != none ) {
 			PlayerPawn(Other).GetWeapon( class<Weapon> (MyProduct.class) );
+			SiegeGI(Level.Game).UpdateNukersList(Other, true);
+		}
+
 		return true;
 	}
 }
@@ -93,7 +96,7 @@ defaultproperties
      BuildingName="Warhead"
      BuildCost=1300
      UpgradeCost=200
-     BuildTime=120.000000
+     BuildTime=10.000000
      SpriteScale=0.400000
      Model=LodMesh'Botpack.missile'
      SkinRedTeam=Texture'SuperContainerSkinT0'

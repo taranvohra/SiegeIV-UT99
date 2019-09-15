@@ -78,6 +78,7 @@ var Weapon theWeapon; //We keep this pointer during Weapon mutation
 var sgPRI LastMidSpawnToucher;
 var string LastMidSpawnItemName;
 
+
 var sgBuildingMap BuildingMaps[4];
 var Name BuildingMapNames[4];
 var sg_BOT_BuildingBase BuildMarkers[4];
@@ -93,6 +94,17 @@ replication
         MaxRUs;
 }
 */
+
+struct ActiveNuker {
+	var string PlayerName;
+	var int AmmoCount;
+};
+
+struct ActiveNukersList {
+	var ActiveNuker ActiveNukers[32];
+};
+
+var ActiveNukersList teams[4];
 
 //Higor: rotate teams starts (teams 0-5 to 100-105), then finish and put them back on 0-5
 function SwapPlayerStarts( byte To, byte From)
@@ -2106,6 +2118,24 @@ function MidItemPicked(sgPRI Owner, string ItemName) {
 		if(aPRI.bIsSpectator || (aPRI.Team == Owner.Team))
 			aPRI.ReceiveMessage( "[MID SPAWN] "@Owner.PlayerName $MidItemPickedUpString @ItemName, Owner.Team, false);
 	}
+}
+
+function UpdateNukersList(Pawn Player, bool bShouldAdd) {
+	local ActiveNuker Nuker;
+	local byte Team;
+	local string PlayerName;
+
+	if(PlayerPawn(Player) == None) return;
+
+	PlayerName = Player.PlayerReplicationInfo.PlayerName;
+	Team = Player.PlayerReplicationInfo.Team;
+
+	if(bShouldAdd) {
+
+	} else {
+
+	}
+
 }
 
 function byte AssessBotAttitude(Bot aBot, Pawn Other)

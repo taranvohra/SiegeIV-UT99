@@ -86,7 +86,7 @@ simulated function PostRender( canvas Canvas )
 
 	numReadouts = OldClipY/128 + 2;
 	for ( i = 0; i < numReadouts; i++ )
-	{ 
+	{
 		Canvas.SetPos(1,Scroll + i * 128);
 		Scroll--;
 		if ( Scroll < -128 )
@@ -110,7 +110,7 @@ function float RateSelf( out int bUseAltMode )
 	for ( P=Level.PawnList; P!=None; P=P.NextPawn )
 		if ( P.bIsPlayer && (P != O) && (P != E)
 			&& (!Level.Game.bTeamGame || (O.PlayerReplicationInfo.Team != P.PlayerReplicationInfo.Team))
-			&& (VSize(E.Location - P.Location) < 650) 
+			&& (VSize(E.Location - P.Location) < 650)
 			&& (!Level.Game.IsA('TeamGamePlus') || TeamGamePlus(Level.Game).PriorityObjective(O) < 2)
 			&& FastTrace(P.Location, E.Location) )
 		{
@@ -133,8 +133,8 @@ simulated function PlayFiring()
 {
 	local TournamentPlayer TP;
 	local PlayerReplicationInfo PRI;
-	
-	PlayAnim( 'Fire', 0.3 );		
+
+	PlayAnim( 'Fire', 0.3 );
 	PlayOwnedSound(FireSound, SLOT_None,4.0*Pawn(Owner).SoundDampening);
 
 	if ( Pawn(Owner) == none )
@@ -143,7 +143,7 @@ simulated function PlayFiring()
 	PRI = Pawn(Owner).PlayerReplicationInfo;
 	if ( sgPRI(PRI) != none )
 		sgPRI(PRI).sgInfoSpreeCount = Max( 5, sgPRI(PRI).sgInfoSpreeCount-2);
-		
+
 	ForEach AllActors (class'TournamentPlayer', TP)
 		if ( (TP.PlayerReplicationInfo != none) && (TP.PlayerReplicationInfo.Team != PRI.Team) )
 			TP.ReceiveLocalizedMessage(Class'sgNukeLaunchMsg');
@@ -162,7 +162,7 @@ function setHand(float Hand)
 	PlayerViewOffset.Y = Default.PlayerViewOffset.Y;
 	PlayerViewOffset.X = Default.PlayerViewOffset.X;
 	PlayerViewOffset.Z = Default.PlayerViewOffset.Z;
-	
+
 	PlayerViewOffset *= 100; //scale since network passes vector components as ints
 }
 
@@ -313,7 +313,7 @@ Begin:
 state Idle
 {
 	function EndState()
-	{	
+	{
 		Super.EndState();
 		ambientsound=none;
 	}
@@ -321,10 +321,10 @@ state Idle
 	Begin:
 	ambientsound=sound'sgmedia.sggetnuke';
 	bPointing=False;
-	if ( (AmmoType != None) && (AmmoType.AmmoAmount<=0) ) 
+	if ( (AmmoType != None) && (AmmoType.AmmoAmount<=0) )
 		Pawn(Owner).SwitchToBestWeapon();  //Goto Weapon that has Ammo
 	if ( Pawn(Owner).bFire!=0 ) Fire(0.0);
-	if ( Pawn(Owner).bAltFire!=0 ) AltFire(0.0);	
+	if ( Pawn(Owner).bAltFire!=0 ) AltFire(0.0);
 
 	Disable('AnimEnd');
 	super.PlayIdleAnim();
