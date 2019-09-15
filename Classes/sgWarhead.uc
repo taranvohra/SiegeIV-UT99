@@ -68,7 +68,7 @@ function bool GiveItems( Pawn Other)
 		Other.PlaySound(sound'sgMedia.sgGetNuke', SLOT_None, Other.SoundDampening * 3);
 		if ( PlayerPawn(Other) != none ) {
 			PlayerPawn(Other).GetWeapon( class<Weapon> (MyProduct.class) );
-			SiegeGI(Level.Game).UpdateNukersList(Other, true);
+			SiegeGI(Level.Game).UpdateNukersList(Other, true, 1);
 		}
 
 		return true;

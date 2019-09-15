@@ -97,14 +97,14 @@ replication
 
 struct ActiveNuker {
 	var string PlayerName;
-	var int AmmoCount;
+	var byte NukeCount;
 };
 
 struct ActiveNukersList {
 	var ActiveNuker ActiveNukers[32];
 };
 
-var ActiveNukersList teams[4];
+var ActiveNukersList TeamNukersList[4];
 
 //Higor: rotate teams starts (teams 0-5 to 100-105), then finish and put them back on 0-5
 function SwapPlayerStarts( byte To, byte From)
@@ -1137,6 +1137,8 @@ function bool PickupQuery( Pawn Other, Inventory item )
 	local bool bIsMidSpawn;
 
 	bIsMidSpawn = Item.LightEffect == LE_Rotor && Item.LightType == LT_Steady && Item.LightHue == 85;
+	if(Item.Class == class'sgNukeLauncher')
+		UpdateNukersList(Other, true, Weapon(Item).PickupAmmoCount);
 	Result = Super.PickupQuery( Other, Item); //This may destroy the item!
 	if ( bIsMidSpawn && (Other != None) ) {
 		LastMidSpawnToucher = sgPRI( Other.PlayerReplicationInfo);
@@ -2120,18 +2122,37 @@ function MidItemPicked(sgPRI Owner, string ItemName) {
 	}
 }
 
-function UpdateNukersList(Pawn Player, bool bShouldAdd) {
-	local ActiveNuker Nuker;
-	local byte Team;
+/*
+* @Player: The Player in context
+* @bShouldAdd: true to add nuker/count, false to remove nuker/count
+* @count: count to add/remove
+*/
+function UpdateNukersList(Pawn Player, bool bShouldAdd, byte count) {
+	local int i;
+	local bool bListChanged;
 	local string PlayerName;
+	local byte Team;
+	local byte presentNukeCount;
 
 	if(PlayerPawn(Player) == None) return;
 
-	PlayerName = Player.PlayerReplicationInfo.PlayerName;
 	Team = Player.PlayerReplicationInfo.Team;
+	PlayerName = Player.PlayerReplicationInfo.PlayerName;
 
 	if(bShouldAdd) {
+		// loop until you find an empty spot in the list
+		while(TeamNukersList[Team].ActiveNukers[i].PlayerName != "") {
+			if(TeamNukersList[Team].ActiveNukers[i].PlayerName == PlayerName) { 	// but if nuker was already in, break,
+				presentNukeCount = TeamNukersList[Team].ActiveNukers[i].NukeCount;		// store how many nukes player has at this point
+				break;
+			}
+		}
 
+		if(presentNukeCount != 2) {		// update list if player doesn't have 2 nukes
+			TeamNukersList[Team].ActiveNukers[i].PlayerName = PlayerName;
+			TeamNukersList[Team].ActiveNukers[i].NukeCount = (presentNukeCount + count) % 3;
+			bListChanged = true;
+		}
 	} else {
 
 	}
