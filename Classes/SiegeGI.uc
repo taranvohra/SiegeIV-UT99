@@ -2119,16 +2119,15 @@ function MidItemPicked(sgPRI Owner, string ItemName) {
 * @count: count to add/remove
 */
 function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
-	local int i, j;
+	local int i, j, indexAffected;
 	local string PlayerName;
 	local byte Team;
 	local byte presentNukeCount;
-	local bool bListChanged;
 	local bool bNukerPresent;
+	local bool bClientShouldUpdate;
 	local string sTemp;
 	local byte bTemp;
 	local sgPRI aPRI;
-	local string TeamNukers[16];		// The team will Receive only their own team's nukers
 
 	if(PlayerPawn(Player) == None) return;
 
@@ -2150,7 +2149,9 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
 		if(presentNukeCount != 2) {
 			ActiveNukersList[i] = PlayerName;
 			ActiveNukersNukeCount[i] = (presentNukeCount + count) % 3;
-			bListChanged = true;
+			if(presentNukeCount == 0)			// had 0 nukes before so new NUKER
+				bClientShouldUpdate = true;
+			indexAffected = i;		// this index will be broadcasted to the client
 		}
 	} else {
 		for(i = Team * 16; i < (Team * 16) + 16; i++) {
@@ -2162,10 +2163,11 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
 
 		// update list only if nuker was already in the list
 		if(bNukerPresent) {
-			bListChanged = true;
+			indexAffected = i;
 			if(count == 0) {		// count wasn't specified that means player dropped all his nukes, so remove
 				ActiveNukersList[i] = "";
 				ActiveNukersNukeCount[i] = 0;
+				bClientShouldUpdate = true;
 				for(j = i + 1; j < (Team * 16) + 16; j++) { 	// shift list
 					if(ActiveNukersList[j] == "")		// remaining list is empty, don't bother
 						break;
@@ -2183,6 +2185,8 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
 			} else {
 				ActiveNukersNukeCount[i] -= count;
 				if(ActiveNukersNukeCount[i] == 0) { 	// player has no more nukes, so remove
+					ActiveNukersList[i] = "";
+					bClientShouldUpdate = true;
 					for(j = i + 1; j < (Team * 16) + 16; j++) { 	// shift list
 						if(ActiveNukersList[j] == "")		// remaining list is empty, don't bother
 							break;
@@ -2202,16 +2206,12 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
 		}
 	}
 
-	// advertise change ONLY if list has been modified
-	if(bListChanged) {
-		for(i = Team * 16; i < (Team * 16) + 16; i++)
-			TeamNukers[i] = ActiveNukersList[i];			// Only copying nukers from a specific team
-
+	// advertise change ONLY if list has PlayerNames ADDED or REMOVED
+	if(bClientShouldUpdate) {
 		ForEach AllActors (class'sgPRI', aPRI) {
-			if(aPRI.Team == Team)							// Broadcast changes to only that specific TEAM
-				aPRI.ReceiveNukersList(TeamNukers);
-			if(aPRI.bIsSpectator)
-				aPRI.ReceiveNukersList(, ActiveNukersList);	// Because Spectators should be able to see ALL NUKERS
+			if(aPRI.Team == Team || aPRI.bIsSpectator) {			// only that TEAM & SPECTATORS will receive nuker update
+				aPRI.ReceiveNukerUpdate(PlayerName, Team, indexAffected, bShouldAdd);
+			}
 		}
 	}
 }

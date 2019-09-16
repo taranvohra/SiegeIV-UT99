@@ -75,8 +75,7 @@ var bool bSiegeStats;
 var bool bTeamRU;
 var bool bEnforceHealth;
 var bool bShowNukers;
-var string TeamNukers[16];
-var string AllNukers[64];
+var string Nukers[64];
 
 //Item caching for faster Inventory chain searches
 var() byte HasCached[11];
@@ -392,17 +391,19 @@ simulated function DrawShowNukers(Canvas C) {
 	local sgPRI PRI;
 	local float width, height;
 	local string s;
+	local byte Team;
 
 	x = 10;
 	y = 0;
+	Team = Pawn(Owner).PlayerReplicationInfo.Team;
 
 	C.Font = Font'SmallFont';
 	C.Style = ERenderStyle.STY_Normal;
 	C.DrawColor = WhiteColor;
 	if(!PlayerPawn(Owner).PlayerReplicationInfo.bIsSpectator) {
-		for(i = 0; i < 16; i++) {
-			if(TeamNukers[i] == "") break;
-			s = TeamNukers[i];
+		for(i = Team * 16; i < (Team * 16) + 16; i++) {
+			if(Nukers[i] == "") continue;
+			s = Nukers[i];
 			C.TextSize(s, width, height);
 			y++;
 		}
@@ -410,19 +411,19 @@ simulated function DrawShowNukers(Canvas C) {
 		y = C.ClipY/3 - ((y * height)/2);
 		C.SetPos(x, y);
 		C.DrawText("Nukers:", True);
-		y += 1;
+		y += height;
 
-		C.DrawColor = TeamColor[Pawn(Owner).PlayerReplicationInfo.Team];
-		for(i = 0; i < 16; i++) {
-			if(TeamNukers[i] == "") break;
+		C.DrawColor = TeamColor[Team];
+		for(i = Team * 16; i < (Team * 16) + 16; i++) {
+			if(Nukers[i] == "") continue;
 			C.SetPos(x, y);
-			C.DrawText(TeamNukers[i], True);
+			C.DrawText(Nukers[i], True);
 			y += height;
 		}
 	} else {
 		for(i = 0; i < 64; i++) {
-			if(AllNukers[i] == "") continue;
-			s = AllNukers[i];
+			if(Nukers[i] == "") continue;
+			s = Nukers[i];
 			C.TextSize(s, width, height);
 			y++;
 		}
@@ -430,13 +431,13 @@ simulated function DrawShowNukers(Canvas C) {
 		y = C.ClipY/3 - ((y * height)/2);
 		C.SetPos(x, y);
 		C.DrawText("Nukers:", True);
-		y += 1;
+		y += height;
 
 		C.DrawColor = PinkColor;
 		for(i = 0; i < 64; i++) {
-			if(AllNukers[i] == "") continue;
+			if(Nukers[i] == "") continue;
 			C.SetPos(x, y);
-			C.DrawText(AllNukers[i], True);
+			C.DrawText(Nukers[i], True);
 			y += height;
 		}
 	}

@@ -48,13 +48,15 @@ function SetWeaponStay()
 
 event Destroyed()
 {
+Log("die");
+	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false);	// no count specified here because person died (lost all nukes)
 	if ( NukeDeco != none )
 	{
 		NukeDeco.Destroy();
 		NukeDeco = none;
 	}
 	Super.Destroyed();
-	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false);	// no count specified here because person died (lost all nukes)
+
 }
 
 simulated function PostRender( canvas Canvas )

@@ -70,21 +70,12 @@ var name Orders;
 var actor OrderObject;
 var sgAIqueuer AIQueuer;
 
-struct ActiveNuker {
-	var string PlayerName;
-	var byte NukeCount;
-};
-
-struct ActiveNukersList {
-	var ActiveNuker ActiveNukers[32];
-};
-
 replication
 {
 	reliable if ( Role == ROLE_Authority )
 		RU, XC_Orb, Orb, sgInfoCoreKiller, sgInfoBuildingHurt, sgInfoCoreRepair, sgInfoUpgradeRepair, sgInfoKiller, sgInfoBuildingMaker,sgInfoWarheadMaker, sgInfoWarheadKiller, CountryPrefix, bReadyToPlay, bHideIdentify, Orders;
 	reliable if ( Role == ROLE_Authority )
-		ReceiveMessage, RequestFingerPrint, ClientReceiveRU, ReceiveNukersList;
+		ReceiveMessage, RequestFingerPrint, ClientReceiveRU, ReceiveNukerUpdate;
 	reliable if ( Role < ROLE_Authority )
 		SendFingerPrint, RequestFPTime;
 }
@@ -318,17 +309,32 @@ END_RECVM:
 		LocalPlayer.ClientMessage("-== "$sMsg$" ==-");
 }
 
-simulated function ReceiveNukersList(optional string ActiveNukers[16], optional string AllNukers[64]) {
+/*
+* @Player: The Player in context
+* @indexAffected: which index in the array was affected
+* @bShouldAdd: true to ADD, false to REMOVE
+*/
+simulated function ReceiveNukerUpdate(string PlayerName, byte Team, int indexAffected, bool bShouldAdd) {
 	local sgHUD HUD;
 	local int i;
+	local string sTemp;
 	if ( PlayerPawn(Owner) != none ) {
 		HUD = sgHUD(PlayerPawn(Owner).MyHUD);
-		if(Spectator(Owner) == none) {
-			for(i = 0; i < 16; i++)
-				HUD.TeamNukers[i] = ActiveNukers[i];
-		} else {
-			for(i = 0; i < 64; i++)
-				HUD.AllNukers[i] = AllNukers[i];
+		if(HUD != none) {
+			if(bShouldAdd) {								// add
+				HUD.Nukers[indexAffected] = PlayerName;
+			} else {										// remove
+				HUD.Nukers[indexAffected] = "";
+				for(i = indexAffected + 1; i < (Team * 16) + 16; i++) {
+					if(HUD.Nukers[i] == "")		// remaining list is empty strings, don't bother
+						break;
+
+					// SHIFTING LOGIC
+					sTemp = HUD.Nukers[i];
+					HUD.Nukers[i] = HUD.Nukers[i - 1];
+					HUD.Nukers[i - 1] = sTemp;
+				}
+			}
 		}
 	}
 }
