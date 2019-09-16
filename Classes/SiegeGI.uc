@@ -1129,7 +1129,7 @@ function bool PickupQuery( Pawn Other, Inventory item )
 
 	bIsMidSpawn = Item.LightEffect == LE_Rotor && Item.LightType == LT_Steady && Item.LightHue == 85;
 	if(Item.Class == class'sgNukeLauncher')
-		UpdateNukersList(Other, true, Weapon(Item).PickupAmmoCount);
+		UpdateNukersList("add", Other, Other.PlayerReplicationInfo.Team, Weapon(Item).PickupAmmoCount);
 	Result = Super.PickupQuery( Other, Item); //This may destroy the item!
 	if ( bIsMidSpawn && (Other != None) ) {
 		LastMidSpawnToucher = sgPRI( Other.PlayerReplicationInfo);
@@ -1629,6 +1629,11 @@ function bool RestartPlayer(Pawn p)
 
 }
 
+function ChangeName(Pawn Other, string S, bool bNameChange) {
+	UpdateNukersList("changeName", Other, Other.PlayerReplicationInfo.Team, ,S);
+	Super.ChangeName(Other, S, bNameChange);
+}
+
 function bool ChangeTeam(Pawn other, int newTeam)
 {
 	local bool bPendingRestart;
@@ -1667,6 +1672,7 @@ function bool ChangeTeam(Pawn other, int newTeam)
 	if ( Other.IsA('Spectator') )
 	{
 		Other.PlayerReplicationInfo.Team = 255;
+		SendCachedNukers(Other, Other.PlayerReplicationInfo.Team);
 		if (LocalLog != None)
 			LocalLog.LogTeamChange(Other);
 		if (WorldLog != None)
@@ -1755,7 +1761,9 @@ function bool ChangeTeam(Pawn other, int newTeam)
 
 	if ( Teams[newTeam].Size < MaxTeamSize )
 	{
+		UpdateNukersList("remove", Other, Other.PlayerReplicationInfo.Team, 2);
 		AddToTeam(newTeam, Other);
+		SendCachedNukers(Other, Other.PlayerReplicationInfo.Team);
 		return true;
 	}
 
@@ -2011,6 +2019,8 @@ function Logout( pawn Exiting )
 		LocalLog.LogPlayerDisconnect(Exiting);
 	if ( WorldLog != None )
 		WorldLog.LogPlayerDisconnect(Exiting);
+
+	UpdateNukersList("remove", Exiting, Exiting.PlayerReplicationInfo.Team, 2);
 }
 
 //Prevent disconnect + damage exploits
@@ -2115,10 +2125,11 @@ function MidItemPicked(sgPRI Owner, string ItemName) {
 
 /*
 * @Player: The Player in context
-* @bShouldAdd: true to add nuker/count, false to remove nuker/count
+* @pTeam: Player's Team
+* @operationType: add, remove, changeName
 * @count: count to add/remove
 */
-function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
+function UpdateNukersList(string operationType, Pawn Player, byte pTeam, optional byte count, optional string newName) {
 	local int i, j, indexAffected;
 	local string PlayerName;
 	local byte Team;
@@ -2131,10 +2142,10 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
 
 	if(PlayerPawn(Player) == None) return;
 
-	Team = Player.PlayerReplicationInfo.Team;
+	Team = pTeam;
 	PlayerName = Player.PlayerReplicationInfo.PlayerName;
 
-	if(bShouldAdd) {
+	if(operationType == "add") {
 		// loop until you find an empty spot in the list
 		for(i = Team * 16; i < (Team * 16) + 16; i++) {
 			if(ActiveNukersList[i] == "")
@@ -2153,18 +2164,19 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
 				bClientShouldUpdate = true;
 			indexAffected = i;		// this index will be broadcasted to the client
 		}
-	} else {
+	} else if (operationType == "remove") {
+		if(Team == 255) return;
+
 		for(i = Team * 16; i < (Team * 16) + 16; i++) {
 			if(ActiveNukersList[i] == PlayerName) {	// position of nuker found in array (i)
 				bNukerPresent = true;
 				break;
 			}
 		}
-
 		// update list only if nuker was already in the list
 		if(bNukerPresent) {
 			indexAffected = i;
-			if(count == 0) {		// count wasn't specified that means player dropped all his nukes, so remove
+			if(count == 2) {		// count wasn't specified that means player dropped all his nukes, so remove
 				ActiveNukersList[i] = "";
 				ActiveNukersNukeCount[i] = 0;
 				bClientShouldUpdate = true;
@@ -2204,15 +2216,39 @@ function UpdateNukersList(Pawn Player, bool bShouldAdd, optional byte count) {
 				}
 			}
 		}
+	} else if( operationType == "changeName" ) {
+		if(Team == 255) return;
+
+		for(i = Team * 16; i < (Team * 16) + 16; i++) {
+			if(ActiveNukersList[i] == PlayerName) {
+				ActiveNukersList[i] = newName;
+				indexAffected = i;
+				bClientShouldUpdate = true;
+				break;
+			}
+		}
 	}
 
 	// advertise change ONLY if list has PlayerNames ADDED or REMOVED
 	if(bClientShouldUpdate) {
 		ForEach AllActors (class'sgPRI', aPRI) {
 			if(aPRI.Team == Team || aPRI.bIsSpectator) {			// only that TEAM & SPECTATORS will receive nuker update
-				aPRI.ReceiveNukerUpdate(PlayerName, Team, indexAffected, bShouldAdd);
+				aPRI.ReceiveNukerUpdate(operationType, PlayerName, Team, indexAffected, newName);
 			}
 		}
+	}
+}
+
+// function to send present nukers to player if they switch teams/go to spec
+function SendCachedNukers(Pawn Player, byte newTeam) {
+	local int i;
+
+	if(newTeam == 255) {
+		for(i = 0; i < 64; i++)
+			sgPRI(Player.PlayerReplicationInfo).ReceiveNukerUpdate("add", ActiveNukersList[i], newTeam, i);
+	} else {
+	for(i = 16 * newTeam; i < (16 * newTeam) + 16; i++)
+		sgPRI(Player.PlayerReplicationInfo).ReceiveNukerUpdate("add", ActiveNukersList[i], newTeam, i);
 	}
 }
 

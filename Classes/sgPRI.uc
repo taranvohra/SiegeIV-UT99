@@ -314,16 +314,17 @@ END_RECVM:
 * @indexAffected: which index in the array was affected
 * @bShouldAdd: true to ADD, false to REMOVE
 */
-simulated function ReceiveNukerUpdate(string PlayerName, byte Team, int indexAffected, bool bShouldAdd) {
+simulated function ReceiveNukerUpdate(string operationType, string PlayerName, byte Team, int indexAffected, optional string newName) {
 	local sgHUD HUD;
 	local int i;
 	local string sTemp;
+
 	if ( PlayerPawn(Owner) != none ) {
 		HUD = sgHUD(PlayerPawn(Owner).MyHUD);
 		if(HUD != none) {
-			if(bShouldAdd) {								// add
+			if(operationType == "add") {								// add
 				HUD.Nukers[indexAffected] = PlayerName;
-			} else {										// remove
+			} else if (operationType == "remove") {										// remove
 				HUD.Nukers[indexAffected] = "";
 				for(i = indexAffected + 1; i < (Team * 16) + 16; i++) {
 					if(HUD.Nukers[i] == "")		// remaining list is empty strings, don't bother
@@ -334,6 +335,8 @@ simulated function ReceiveNukerUpdate(string PlayerName, byte Team, int indexAff
 					HUD.Nukers[i] = HUD.Nukers[i - 1];
 					HUD.Nukers[i - 1] = sTemp;
 				}
+			} else if(operationType == "changeName") {
+				HUD.Nukers[indexAffected] = newName;
 			}
 		}
 	}

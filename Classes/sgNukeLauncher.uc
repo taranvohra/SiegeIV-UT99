@@ -48,8 +48,10 @@ function SetWeaponStay()
 
 event Destroyed()
 {
-Log("die");
-	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false);	// no count specified here because person died (lost all nukes)
+	SiegeGI(Level.Game).UpdateNukersList("remove",
+		Pawn(Owner),
+		Pawn(Owner).PlayerReplicationInfo.Team,
+		2);
 	if ( NukeDeco != none )
 	{
 		NukeDeco.Destroy();
@@ -192,7 +194,10 @@ function DropFrom(vector StartLocation)
 {
 	if ( NukeDeco != none )
 		NukeDeco.Destroy();
-	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false);	// no count specified here because person will be dropping all
+		SiegeGI(Level.Game).UpdateNukersList("remove",
+		Pawn(Owner),
+		Pawn(Owner).PlayerReplicationInfo.Team,
+		2);
 	Super.DropFrom(StartLocation);
 }
 
@@ -202,7 +207,10 @@ function Fire( float Value )
 	Super.Fire(Value);
 	if ( (AmmoType.AmmoAmount <= 0) && (NukeDeco != none) )
 		NukeDeco.Destroy();
-	SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false, 1);
+		SiegeGI(Level.Game).UpdateNukersList("remove",
+		Pawn(Owner),
+		Pawn(Owner).PlayerReplicationInfo.Team,
+		1);
 }
 
 function AltFire( float Value )
@@ -217,7 +225,10 @@ function AltFire( float Value )
 
 	if ( AmmoType.UseAmmo(1) )
 	{
-		SiegeGI(Level.Game).UpdateNukersList(Pawn(Owner), false, 1);
+		SiegeGI(Level.Game).UpdateNukersList("remove",
+		Pawn(Owner),
+		Pawn(Owner).PlayerReplicationInfo.Team,
+		1);
 
 		for ( p = Level.PawnList; p != None; p = p.nextPawn )
 			if ( p.IsA('TournamentPlayer' ) && p.PlayerReplicationInfo.Team !=
