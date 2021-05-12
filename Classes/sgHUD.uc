@@ -1365,7 +1365,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 	Canvas.DrawColor = WhiteColor;
 
     Canvas.TextSize("RU: ", XL, YL);
-    Canvas.TextSize("BaseCore:", XL2, YL2);
+    Canvas.TextSize("Base Core:", XL2, YL2);
 
     if ( bHideAllWeapons )
 	    YOffset = Canvas.ClipY;
@@ -1631,7 +1631,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 			}
 	*/
 	SKIP_ITEMS:
-	YOffset -= XL * 3;
+	YOffset -= XL * 1.1;
     Canvas.SetPos(0, YOffset);
     Canvas.Style = ERenderStyle.STY_Masked;
     Canvas.DrawText("RU:", false);
@@ -1639,7 +1639,7 @@ simulated function DrawGameSynopsis(canvas Canvas)
 	if (sgB != None)
 	{
 		Canvas.SetPos(0, YOffset+YL);
-		Canvas.DrawText("BaseCore:", false);
+		Canvas.DrawText("Base Core:", false);
 	}
 
 	if ( PRI != None )
